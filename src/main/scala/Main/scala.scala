@@ -1,0 +1,5 @@
+package Main
+
+object scala {
+
+}
