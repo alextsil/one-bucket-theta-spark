@@ -1,5 +1,0 @@
-package Main
-
-object scala {
-
-}
