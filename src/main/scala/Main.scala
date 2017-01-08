@@ -5,10 +5,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     //init
     val conf = new SparkConf()
-      .setMaster("local[*]")
       .setAppName("one-bucket-theta-spark")
-      .set("spark.executor.instances", "3")
-      .set("spark.executor.cores", "1")
 
     val sc = SparkContext.getOrCreate(conf)
     val spark = SparkSession.builder().getOrCreate
@@ -25,7 +22,7 @@ object Main {
     val mappedStores = storesRdd.map(storeRow => (storeRow.get(25), storeRow))
     val mappedCa = caRdd.map(caRow => (caRow.get(9), caRow))
 
-    val partitionedCa = mappedCa.partitionBy(new RandomPartitioner(3))
+    val partitionedCa = mappedCa.partitionBy(new RandomPartitioner(args(0).toInt))
     partitionedCa.persist.collect
     partitionedCa.join(mappedStores).collect()
 
