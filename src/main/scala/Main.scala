@@ -29,21 +29,23 @@ object Main {
       val partitionedCa = mappedCa.partitionBy(new RandomPartitioner(workerCount))
       partitionedCa.persist
       partitionedCa.join(mappedStores).collect() //kane to collect na grafei se file(?)
+    } else {
+      this.logger.error("Couldn't determine type. Aborting launch...")
     }
 
     readChar() //Pause
   }
 
-  // |S| < |T|/r
+  //Theorem 2 : |S| < |T|/r
   def isTheorem2Case(s: RDD[Row], t: RDD[Row], r: Integer): Boolean = {
-    val sSize: Integer = s.countApprox(7000, 0.95).initialValue.mean.toInt//todo: check it akrivws kanei to initialValue
+    val sSize: Integer = s.countApprox(7000, 0.95).initialValue.mean.toInt
+    //todo: check it akrivws kanei to initialValue
     val tSize: Integer = t.countApprox(7000, 0.95).initialValue.mean.toInt
 
-    if (sSize > tSize) {
-
+    if (sSize < tSize / r) {
+      this.logger.info("Theorem 2 case detected")
+      return true
     }
-
-    this.logger.info("Theorem 2 case detected")
-    true; //todo : grapse tous kanones kai run sto clusteraki ^_^
+    return false
   }
 }
