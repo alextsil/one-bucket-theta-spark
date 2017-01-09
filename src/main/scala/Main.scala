@@ -14,6 +14,7 @@ object Main {
     val spark = SparkSession.builder().getOrCreate
 
     //Load (tpcds generated) data
+    //todo: make use the smaller dataset is always "s" as theorem detection methods depend on that.
     val storeDF = spark.read.parquet(args(1))
     val caDF = spark.read.parquet(args(2))
     //DF to RDD
@@ -28,19 +29,31 @@ object Main {
 
       val partitionedCa = mappedCa.partitionBy(new RandomPartitioner(workerCount))
       partitionedCa.persist
-      partitionedCa.join(mappedStores).collect() //kane to collect na grafei se file(?)
+      val pathToExport = "/media/joinOutput/out"
+      //joinOutput folder must exist and have -777 for all new children folders
+      val joinResult = partitionedCa.join(mappedStores)//.coalesce(1)
+      this.logger.info("Join result tuple count is approximately : " + joinResult.count)
+
+      //Save output
+      try {
+        joinResult.saveAsTextFile(pathToExport)
+        this.logger.info("Saved join result tuples to : " + pathToExport)
+      } catch {
+        case e : Exception => this.logger.error("Couldn't save file")
+      }
     } else {
-      this.logger.error("Couldn't determine type. Aborting launch...")
+      this.logger.error("Couldn't determine theorem. Aborting launch...")
     }
 
-    readChar() //Pause
+    this.logger.info("Pausing execution... Pres any key to resume/terminate job")
+    readChar()
   }
 
   //Theorem 2 : |S| < |T|/r
   def isTheorem2Case(s: RDD[Row], t: RDD[Row], r: Integer): Boolean = {
-    val sSize: Integer = s.countApprox(7000, 0.95).initialValue.mean.toInt
-    //todo: check it akrivws kanei to initialValue
-    val tSize: Integer = t.countApprox(7000, 0.95).initialValue.mean.toInt
+    //todo: dokimase an xtipaei ram se megala dataset kai vale countApprox
+    val sSize = s.count
+    val tSize = t.count
 
     if (sSize < tSize / r) {
       this.logger.info("Theorem 2 case detected")
