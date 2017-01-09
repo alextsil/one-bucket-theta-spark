@@ -1,6 +1,6 @@
 name := "one-bucket-theta-spark"
 
-version := "1.0"
+version := "0.6"
 
 scalaVersion := "2.11.6"
 
