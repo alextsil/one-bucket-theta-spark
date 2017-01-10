@@ -8,13 +8,11 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     //init
-    val conf = new SparkConf()
-      .setAppName("one-bucket-theta-spark")
+    val conf = new SparkConf().setAppName("one-bucket-theta-spark")
     val sc = SparkContext.getOrCreate(conf)
     val spark = SparkSession.builder().getOrCreate
 
     //Load (tpcds generated) data
-    //todo: make use the smaller dataset is always "s" as theorem detection methods depend on that.
     val storeDF = spark.read.parquet(args(1))
     val caDF = spark.read.parquet(args(2))
     //DF to RDD
@@ -28,25 +26,31 @@ object Main {
       val mappedCa = caRdd.map(caRow => (caRow.get(9), caRow))
 
       val partitionedCa = mappedCa.partitionBy(new RandomPartitioner(workerCount))
-      partitionedCa.persist
-      val pathToExport = "/media/joinOutput/out"
-      //joinOutput folder must exist and have -777 for all new children folders
-      val joinResult = partitionedCa.join(mappedStores)//.coalesce(1)
-      this.logger.info("Join result tuple count is approximately : " + joinResult.count)
+      //partitionedCa.persist //Gia na mporw na dw to partitioning sto UI
 
-      //Save output
+      //"joinOutput" folder must exist and have -777 for all new children folders
+      val pathToExport = "/media/joinOutput/out"
+
+      val cartesian = caRdd.cartesian(storesRdd)
+
+      val filteredCartesian = cartesian
+        .filter(c => c._1.getAs("ca_zip") != null)
+        .filter(c => !(c._1.getAs("ca_zip").asInstanceOf[String].substring(0, 4) == c._2.getAs("s_zip").asInstanceOf[String].substring(0, 4)))
+
+      logger.info("filter cartesian count : " + filteredCartesian.count())
+
+      //Try to save output
       try {
-        joinResult.saveAsTextFile(pathToExport)
+//        filteredCartesian.saveAsTextFile("/media/joinOutput/out1")
         this.logger.info("Saved join result tuples to : " + pathToExport)
       } catch {
-        case e : Exception => this.logger.error("Couldn't save file")
+        case e: Exception => this.logger.error("Couldn't save file. Message is : " + e.getMessage)
       }
     } else {
-      this.logger.error("Couldn't determine theorem. Aborting launch...")
+      this.logger.error("Input data dont match theorem 2 case. Aborting launch...")
     }
 
-    this.logger.info("Pausing execution... Pres any key to resume/terminate job")
-    readChar()
+    readChar() //Pauses execution to allow for inspection
   }
 
   //Theorem 2 : |S| < |T|/r
