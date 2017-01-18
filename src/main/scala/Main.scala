@@ -3,6 +3,9 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
+import scala.collection.JavaConversions.bufferAsJavaList
+import scala.collection.mutable.ListBuffer
+
 object Main {
   val logger: Logger = Logger.getLogger(this.getClass)
   val pathToExportResults = "/media/joinOutput/out"
@@ -13,6 +16,7 @@ object Main {
     val sc = SparkContext.getOrCreate(conf)
     val spark = SparkSession.builder().getOrCreate
 
+
     //Load data
     val storeDF = spark.read.parquet(args(1))
     val caDF = spark.read.parquet(args(2))
@@ -20,11 +24,11 @@ object Main {
     //DF to RDD
     val storesRdd = storeDF.rdd
     val caRdd = caDF.rdd
-    val workerCount: Integer = args(0).toInt
+    val partitionCount: Integer = args(0).toInt
 
-    if (this.isTheorem2Case(storesRdd, caRdd, workerCount)) {
+    if (this.isTheorem1Case(storesRdd, caRdd, partitionCount)) {
       val mappedCa = caRdd.map(caRow => (caRow.get(0), caRow))
-      val partitionedCa = mappedCa.partitionBy(new RandomPartitioner(workerCount))
+      val partitionedCa = mappedCa.partitionBy(new RandomPartitioner(partitionCount))
 
       //Anagkastika map gia na mporesw na xrhsimopoihsw ton RandomPartitioner
       val cartesian = partitionedCa.cartesian(storesRdd)
@@ -52,16 +56,12 @@ object Main {
     readChar() //Pauses execution to allow for inspection
   }
 
-  //Theorem 2 : |S| < |T|/r
-  def isTheorem2Case(s: RDD[Row], t: RDD[Row], r: Integer): Boolean = {
-    //todo: dokimase an xtipaei ram se megala dataset kai vale countApprox
-    val sSize = s.count
-    val tSize = t.count
+  //Theorem 1 : na xorane akrivws sto matrix
+  def isTheorem1Case(s: RDD[Row], t: RDD[Row], r: Integer): Boolean = {
+    //    val sSize = s.count
+    //    val tSize = t.count
 
-    if (sSize < tSize / r) {
-      this.logger.info("Theorem 2 case detected")
-      return true
-    }
-    return false
+    //    this.logger.info("Theorem 1 case detected")
+    return true
   }
 }
