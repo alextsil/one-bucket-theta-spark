@@ -27,7 +27,6 @@ object Main {
     val caCount = caRdd.count()
 
     //Apo typo sto paper -> Sto theorem 1 einai akeraia ta dimensions. Sta alla kanw rounding gia na to xeiristw
-    //Todo: anti gia rounding kane inflation (theorem 3)
     val dimensionSize = BigDecimal(Math.sqrt(storesCount * caCount / partitionCount))
       .setScale(0, BigDecimal.RoundingMode.HALF_EVEN).toInt
     // --------------------------------------
@@ -45,15 +44,17 @@ object Main {
     var region = 0
     for (i <- 1 to vLoops) {
       logger.info("i value: " + i)
-      val verticalList = sTuples.drop(dimensionSize * (i - 1)).take((dimensionSize * i)).toVector
+      val verticalList = sTuples.drop(dimensionSize * (i - 1)).take((dimensionSize)).toVector
       logger.info("vertical list size: " + verticalList.size)
       for (j <- 1 to hLoops) {
         region += 1
         logger.info("j value: " + j)
-        val horizontalList = tTuples.drop(dimensionSize * (j - 1)).take((dimensionSize * j)).toVector
+        val horizontalList = tTuples.drop(dimensionSize * (j - 1)).take((dimensionSize)).toVector
         logger.info("horizontal list size: " + horizontalList.size)
 
-        val rj = RegionalJoin(region, horizontalList, verticalList)
+        val rj = RegionalJoin(region,
+          horizontalList.filter(r => r.getAs("s_zip") != null),
+          verticalList.filter(r => r.getAs("ca_zip") != null))
         logger.info("regional join obj created: " + rj.toString)
         regionalJoinObjects += rj
       }
@@ -63,37 +64,31 @@ object Main {
     regionalJoinObjects.foreach(rjo => logger.info(rjo.toString))
     logger.info("all reg join objects -> end")
 
-    //create rdd
-    val rddOmg = sc.parallelize(regionalJoinObjects).map(rj => (rj.regionNumber, rj)).partitionBy(new MirrorPartitioner(partitionCount))
-    logger.info("rddOmg count : " + rddOmg.count())
+    //create rdd, map to [regionNumber, RegionalJoin] format and finally partition by region number
+    val rdd = sc.parallelize(regionalJoinObjects).map(rj => (rj.regionNumber, rj)).partitionBy(new MirrorPartitioner(partitionCount))
+    logger.info("rdd count : " + rdd.count())
 
-    rddOmg.map(r => this.thetaJoin(r._2.tTuples, r._2.sTuples)).saveAsTextFile(pathToExportResults)
+    val countRdd = rdd.map(r => this.thetaJoin(r._2.tTuples, r._2.sTuples))
+    //Kathe partition bgazei diko tou count output
+    //todo: na vrw ena tropo na prosthesw ta counts
+    countRdd.saveAsTextFile(pathToExportResults)
 
-    // --------------------------------------
-    //Try to save results to file
-    try {
-      //w/e -> saveAsTextFile(pathToExportResults)
-      //      this.logger.info("Saved theta join result tuples to : " + pathToExportResults)
-    } catch {
-      case e: Exception => this.logger.error("Couldn't save file. Message is : " + e.getMessage)
-    }
-    logger.info("telos")
+    logger.info("One bucket theta finished...")
     readChar() //Pauses execution to allow for inspection
   }
 
+  //Nested loop
   def thetaJoin(t: Seq[Row], s: Seq[Row]): Integer = {
-    //    var thetaOut = new ListBuffer[Row]
-    var thetaOut = 0
+    var thetaOutCount = 0
     for (i <- t.indices) {
       for (j <- s.indices) {
-        //== operator should handle null values
-        if ((t(i).getAs("s_zip") == s(j).getAs("ca_zip"))) {
-          //add to out
-          thetaOut += 1
+        //The == operator handles null values
+        if (!(t(i).getAs("s_zip") == s(j).getAs("ca_zip"))) {
+          thetaOutCount += 1
         }
       }
     }
-    thetaOut
+    thetaOutCount
   }
 
 }
