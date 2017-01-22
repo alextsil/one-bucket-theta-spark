@@ -25,7 +25,6 @@ object Main {
     //Data information
     val storesCount = storesRdd.count()
     val caCount = caRdd.count()
-    val cartesianSize = storesCount * caCount
 
     //Apo typo sto paper -> Sto theorem 1 einai akeraia ta dimensions. Sta alla kanw rounding gia na to xeiristw
     //Todo: anti gia rounding kane inflation (theorem 3)
@@ -65,10 +64,11 @@ object Main {
     logger.info("all reg join objects -> end")
 
     //create rdd
-    val rddOmg = sc.parallelize(regionalJoinObjects).map(rj => (rj.regionNumber, rj))
+    val rddOmg = sc.parallelize(regionalJoinObjects).map(rj => (rj.regionNumber, rj)).partitionBy(new MirrorPartitioner(partitionCount))
     logger.info("rddOmg count : " + rddOmg.count())
-    rddOmg.foreach(record => {
-      logger.info("region: " + record._1 + ", countT: " + record._2.tTuples.size + "countS: " + record._2.sTuples.size)
+
+    rddOmg.collect().foreach(record => {
+      logger.info("Apo rddOmg -> region: " + record._1 + ", countT: " + record._2.tTuples.size + ", countS: " + record._2.sTuples.size)
     })
 
     // --------------------------------------
