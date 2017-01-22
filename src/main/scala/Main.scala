@@ -1,5 +1,5 @@
 import org.apache.log4j.Logger
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ListBuffer
@@ -45,12 +45,12 @@ object Main {
     var region = 0
     for (i <- 1 to vLoops) {
       logger.info("i value: " + i)
-      val verticalList = sTuples.drop(dimensionSize * (i - 1)).take((dimensionSize * i))
+      val verticalList = sTuples.drop(dimensionSize * (i - 1)).take((dimensionSize * i)).toVector
       logger.info("vertical list size: " + verticalList.size)
       for (j <- 1 to hLoops) {
         region += 1
         logger.info("j value: " + j)
-        val horizontalList = tTuples.drop(dimensionSize * (j - 1)).take((dimensionSize * j))
+        val horizontalList = tTuples.drop(dimensionSize * (j - 1)).take((dimensionSize * j)).toVector
         logger.info("horizontal list size: " + horizontalList.size)
 
         val rj = RegionalJoin(region, horizontalList, verticalList)
@@ -67,9 +67,7 @@ object Main {
     val rddOmg = sc.parallelize(regionalJoinObjects).map(rj => (rj.regionNumber, rj)).partitionBy(new MirrorPartitioner(partitionCount))
     logger.info("rddOmg count : " + rddOmg.count())
 
-    rddOmg.collect().foreach(record => {
-      logger.info("Apo rddOmg -> region: " + record._1 + ", countT: " + record._2.tTuples.size + ", countS: " + record._2.sTuples.size)
-    })
+    rddOmg.map(r => this.thetaJoin(r._2.tTuples, r._2.sTuples)).saveAsTextFile(pathToExportResults)
 
     // --------------------------------------
     //Try to save results to file
@@ -82,4 +80,20 @@ object Main {
     logger.info("telos")
     readChar() //Pauses execution to allow for inspection
   }
+
+  def thetaJoin(t: Seq[Row], s: Seq[Row]): Integer = {
+    //    var thetaOut = new ListBuffer[Row]
+    var thetaOut = 0
+    for (i <- t.indices) {
+      for (j <- s.indices) {
+        //== operator should handle null values
+        if ((t(i).getAs("s_zip") == s(j).getAs("ca_zip"))) {
+          //add to out
+          thetaOut += 1
+        }
+      }
+    }
+    thetaOut
+  }
+
 }
