@@ -46,20 +46,23 @@ object Main {
     var region = 0
     for (i <- 1 to vLoops) {
       logger.info("i value: " + i)
-      val verticalList = sTuples.drop(dimensionSize * (i - 1)).take((dimensionSize * i) - 1)
+      val verticalList = sTuples.drop(dimensionSize * (i - 1)).take((dimensionSize * i))
       logger.info("vertical list size: " + verticalList.size)
-      region += 1
       for (j <- 1 to hLoops) {
+        region += 1
         logger.info("j value: " + j)
-        val horizontalList = tTuples.drop(dimensionSize * (j - 1)).take((dimensionSize * j) - 1)
+        val horizontalList = tTuples.drop(dimensionSize * (j - 1)).take((dimensionSize * j))
         logger.info("horizontal list size: " + horizontalList.size)
 
         val rj = RegionalJoin(region, horizontalList, verticalList)
         logger.info("regional join obj created: " + rj.toString)
         regionalJoinObjects += rj
-        region += 1
       }
     }
+    logger.info("reg join list size : " + regionalJoinObjects.size)
+    logger.info("all reg join objects -> start")
+    regionalJoinObjects.foreach(rjo => logger.info(rjo.toString))
+    logger.info("all reg join objects -> end")
 
     //create rdd
     val rddOmg = sc.parallelize(regionalJoinObjects).map(rj => (rj.regionNumber, rj))
